@@ -1,0 +1,9 @@
+### Java ###
+# Compiled class file
+*.class
+
+### Project ###
+.idea/
+*.iml
+resources/
+output/
