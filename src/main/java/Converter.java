@@ -20,17 +20,17 @@ public class Converter {
     //Declare the output CSV files
     private FileWriter RunConfiguration_Node_File;
     private FileWriter Individual_Entity_File;
-    private FileWriter Genome_Entity_File;
+    private FileWriter Gene_Entity_File;
     private FileWriter SingleError_Entity_File;
     private FileWriter TotalError_Entity_File;
     private FileWriter RunConfiguration_Individual_Edge_File;
     private FileWriter ParentOf_Edge_File;
-    private FileWriter Individual_Genome_Edge_File;
+    private FileWriter Individual_Gene_Edge_File;
     private FileWriter Individual_TotalError_Edge_File;
     private FileWriter TotalError_SingleError_Edge_File;
+    private FileWriter Inherited_Gene_Edge_File;
 
     //HashMaps for keeping track of unique entities
-    private HashMap<String, String> uniqueGenomes = new HashMap<String, String>();
     private HashMap<String, String> uniqueSingleErrors = new HashMap<String, String>();
     private HashMap<String, String> uniqueTotalErrors = new HashMap<String, String>();
 
@@ -62,30 +62,32 @@ public class Converter {
     private void setUp_CSV_Files(String target) throws IOException{
         RunConfiguration_Node_File = new FileWriter(target + "/RunConfigurations_Entity.csv");
         Individual_Entity_File = new FileWriter( target + "/Individual_Entity.csv");
-        Genome_Entity_File = new FileWriter(target + "/Genome_Entity.csv");
+        Gene_Entity_File = new FileWriter(target + "/Gene_Entity.csv");
         SingleError_Entity_File = new FileWriter(target + "/SingleError_Entity.csv");
         TotalError_Entity_File = new FileWriter(target + "/TotalError_Entity.csv");
 
         RunConfiguration_Individual_Edge_File = new FileWriter(target + "/RunConfigurations_Individual_Edge.csv");
         ParentOf_Edge_File = new FileWriter(target + "/ParentOf_Edge.csv");
-        Individual_Genome_Edge_File = new FileWriter(target + "/Individual_Genome_Edge.csv");
+        Individual_Gene_Edge_File = new FileWriter(target + "/Individual_Gene_Edge.csv");
         Individual_TotalError_Edge_File = new FileWriter(target + "/Individual_TotalError_Edge.csv");
         TotalError_SingleError_Edge_File = new FileWriter(target + "/TotalError_SingleError_Edge.csv");
+        Inherited_Gene_Edge_File = new FileWriter(target + "/Inherited_Gene_Edge.csv");
 
         appendHeaders();
     }
 
     private void appendHeaders() throws  IOException{
         Individual_Entity_File.append("uuid:ID(Individual),generation:int,location:int,:LABEL");
-        Genome_Entity_File.append("uuid:ID(Genome),close:int,instruction,:LABEL");
+        Gene_Entity_File.append("uuid:ID(Gene),close:int,position:int,instruction,:LABEL");
         SingleError_Entity_File.append("uuid:ID(SingleError),error:long,position:int,:LABEL");
         TotalError_Entity_File.append("uuid:ID(TotalError),TotalError:long,:LABEL");
 
         RunConfiguration_Individual_Edge_File.append(":START_ID(RunConfigurations),:END_ID(Individual),:TYPE");
         ParentOf_Edge_File.append(":START_ID(Individual),genetic-operator,:END_ID(Individual),:TYPE");
-        Individual_Genome_Edge_File.append(":START_ID(Individual),:END_ID(Genome),:TYPE");
+        Individual_Gene_Edge_File.append(":START_ID(Individual),:END_ID(Gene),:TYPE");
         Individual_TotalError_Edge_File.append(":START_ID(Individual),:END_ID(TotalError),:TYPE");
         TotalError_SingleError_Edge_File.append(":START_ID(TotalError),:END_ID(SingleError),:TYPE");
+        Inherited_Gene_Edge_File.append(":START_ID(Gene),:END_ID(Gene),:TYPE");
     }
 
 
@@ -96,12 +98,20 @@ public class Converter {
         TaggedValue runConfigs = (TaggedValue) parser.nextValue(ednFile);
         Map<?, ?> runConfigMap = (Map<?, ?>) runConfigs.getValue();
 
-        Object[] keys = (runConfigMap.keySet()).toArray(new Object[(runConfigMap.keySet()).size()]);
+        Object[] keys = runConfigMap.keySet().toArray(new Object[(runConfigMap.keySet()).size()]);
+        String[] keysAsString  = new String[keys.length];
+
+        //Storing keys as strings
+        for (int i  = 0; i < keys.length; i++) {
+            keysAsString[i] = (keys[i].toString()).substring(1);
+        }
 
         runConfigurations_HEADER.append("uuid:ID(RunConfigurations)");
         runConfigurations_HEADER.append(COMMA);
-        for (Object obj: keys) {
-            runConfigurations_HEADER.append(obj.toString());
+
+
+        for (String key: keysAsString) {
+            runConfigurations_HEADER.append(key);
             runConfigurations_HEADER.append(COMMA);
         }
 
@@ -112,11 +122,17 @@ public class Converter {
         RunConfiguration_Node_File.append(runConfig_ID);
         RunConfiguration_Node_File.append(COMMA);
 
-        for (Object obj: keys) {
-            RunConfiguration_Node_File.append("\"");
-            RunConfiguration_Node_File.append(obj.toString());
-            RunConfiguration_Node_File.append("\"");
-            runConfigurations_HEADER.append(COMMA);
+        for (String key: keysAsString) {
+            try {
+                RunConfiguration_Node_File.append("\"");
+                RunConfiguration_Node_File.append(runConfigMap.get(newKeyword(key)).toString()); //Getting a value from runConfigMap
+                RunConfiguration_Node_File.append("\"");
+                RunConfiguration_Node_File.append(COMMA);
+            }catch (NullPointerException e){
+                RunConfiguration_Node_File.append("null"); //Getting a value from runConfigMap
+                RunConfiguration_Node_File.append("\"");
+                RunConfiguration_Node_File.append(COMMA);
+            }
         }
 
         RunConfiguration_Node_File.append("RunConfigurations");
@@ -155,7 +171,7 @@ public class Converter {
             Individual_Entity_File.append("Individual");
             extractParents(Individual);
             handle_TotalError(Individual);
-            handle_Genome(Individual);
+            handle_Gene(Individual);
             currentRow = parser.nextValue(ednFile);
         }
 
@@ -200,17 +216,17 @@ public class Converter {
     }
 
 
-    private void handle_Genome(Individual Individual) throws IOException{
-        StringBuilder key = new StringBuilder();
+    private void handle_Gene(Individual Individual) throws IOException{
+        StringBuilder GeneData = new StringBuilder();
         String Close;
         String Instruction;
-        String Genome_ID;
         String replace;
-        String mapKey;
+        String GeneID;
 
-        for(int i = 0; i < Individual.Genomes.size(); i++){
-            Close = ((Map<?, ?>)Individual.Genomes.get(i)).get(newKeyword("close")).toString();
-            Instruction = ((Map<?, ?>)Individual.Genomes.get(i)).get(newKeyword("instruction")).toString();
+        for(int i = 0; i < Individual.Genes.size(); i++){
+            Close = ((Map<?, ?>)Individual.Genes.get(i)).get(newKeyword("close")).toString();
+            Instruction = ((Map<?, ?>)Individual.Genes.get(i)).get(newKeyword("instruction")).toString();
+            GeneID  = ((Map<?, ?>)Individual.Genes.get(i)).get(newKeyword("uuid")).toString();
             if(Instruction.contains("\n"))Instruction = "\\newline";
 
             if(Instruction.contains("\\")){
@@ -228,37 +244,50 @@ public class Converter {
                 Instruction = replace;
             }
 
-            key.append(Close);
-            key.append(COMMA);
-            key.append("\"");
-            key.append(Instruction);
-            key.append("\"");
-            mapKey = key.toString();
 
-            if(!(uniqueGenomes.containsKey(mapKey))){
-                Genome_Entity_File.append(NEW_LINE);
-                Genome_ID = UUID.randomUUID().toString();
-                Genome_Entity_File.append(Genome_ID);
-                Genome_Entity_File.append(COMMA);
-                Genome_Entity_File.append(key);
-                Genome_Entity_File.append(COMMA);
-                Genome_Entity_File.append("Genome");
-                uniqueGenomes.put(mapKey, Genome_ID);
-                handle_Genome_Edge(Individual.Individual_ID, Genome_ID);
-            }else{
-                handle_Genome_Edge( Individual.Individual_ID, uniqueGenomes.get(mapKey));
+            //Checking if gene has a parentID
+            if(((Map<?, ?>)Individual.Genes.get(i)).containsKey(newKeyword("parent-uuid"))){
+                String parentGeneID = ((Map<?, ?>)Individual.Genes.get(i)).get(newKeyword("parent-uuid")).toString();
+                handle_Inherited_Gene_Edge(parentGeneID, GeneID);
             }
-            key.setLength(0);
+
+            Gene_Entity_File.append(NEW_LINE);
+            GeneData.append(GeneID);
+            GeneData.append(COMMA);
+            GeneData.append(Close);
+            GeneData.append(COMMA);
+            GeneData.append(Integer.toString(i)); //Adding the position number of the gene
+            GeneData.append(COMMA);
+            GeneData.append("\"");
+            GeneData.append(Instruction);
+            GeneData.append("\"");
+            GeneData.append(COMMA);
+            GeneData.append("Gene");
+            Gene_Entity_File.append(GeneData);
+            handle_Gene_Edge(Individual.Individual_ID, GeneID);
+            GeneData.setLength(0);
+
         }
     }
 
-    private void handle_Genome_Edge(String IndividualID, String Genome_ID) throws IOException{
-        Individual_Genome_Edge_File.append(NEW_LINE);
-        Individual_Genome_Edge_File.append(IndividualID);
-        Individual_Genome_Edge_File.append(COMMA);
-        Individual_Genome_Edge_File.append(Genome_ID);
-        Individual_Genome_Edge_File.append(COMMA);
-        Individual_Genome_Edge_File.append("HasGenome");
+    private void handle_Gene_Edge(String Individual_ID, String Gene_ID) throws IOException{
+        Individual_Gene_Edge_File.append(NEW_LINE);
+        Individual_Gene_Edge_File.append(Individual_ID);
+        Individual_Gene_Edge_File.append(COMMA);
+        Individual_Gene_Edge_File.append(Gene_ID);
+        Individual_Gene_Edge_File.append(COMMA);
+        Individual_Gene_Edge_File.append("HasGene");
+    }
+
+
+    private void handle_Inherited_Gene_Edge(String SourceGene_ID, String Gene_ID) throws IOException{
+        Inherited_Gene_Edge_File.append(NEW_LINE);
+        Inherited_Gene_Edge_File.append(SourceGene_ID);
+        Inherited_Gene_Edge_File.append(COMMA);
+        Inherited_Gene_Edge_File.append(Gene_ID);
+        Inherited_Gene_Edge_File.append(COMMA);
+        Inherited_Gene_Edge_File.append("SourceGeneOf");
+
     }
 
     private void handle_TotalError(Individual Individual) throws IOException{
@@ -332,8 +361,8 @@ public class Converter {
         Individual_Entity_File.flush();
         Individual_Entity_File.close();
 
-        Genome_Entity_File.flush();
-        Genome_Entity_File.close();
+        Gene_Entity_File.flush();
+        Gene_Entity_File.close();
 
         SingleError_Entity_File.flush();
         SingleError_Entity_File.close();
@@ -347,14 +376,17 @@ public class Converter {
         ParentOf_Edge_File.flush();
         ParentOf_Edge_File.close();
 
-        Individual_Genome_Edge_File.flush();
-        Individual_Genome_Edge_File.close();
+        Individual_Gene_Edge_File.flush();
+        Individual_Gene_Edge_File.close();
 
         Individual_TotalError_Edge_File.flush();
         Individual_TotalError_Edge_File.close();
 
         TotalError_SingleError_Edge_File.flush();
         TotalError_SingleError_Edge_File.close();
+
+        Inherited_Gene_Edge_File.flush();
+        Inherited_Gene_Edge_File.close();
     }
 
     private class Individual{
@@ -364,7 +396,7 @@ public class Converter {
         String Genetic_Operators;
         String TotalError;
         ArrayList<Object> ErrorVector;
-        ArrayList<Object> Genomes;
+        ArrayList<Object> Genes;
         Collection<Object> Parents;
 
 
@@ -375,7 +407,7 @@ public class Converter {
             Genetic_Operators = individualMap.get(newKeyword("genetic-operators")).toString();
             TotalError = individualMap.get(newKeyword("total-error")).toString();
             ErrorVector = new ArrayList<Object>((Collection<Object>)individualMap.get(newKeyword("errors")));
-            Genomes = new ArrayList<Object>((Collection<Object>)individualMap.get(newKeyword("genome")));
+            Genes = new ArrayList<Object>((Collection<Object>)individualMap.get(newKeyword("genome")));
             Parents = (Collection<Object>)individualMap.get(newKeyword("parent-uuids"));
         }
 
