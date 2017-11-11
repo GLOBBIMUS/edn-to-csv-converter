@@ -25,7 +25,7 @@
 	  <archive>
 	    <manifest>
 	      <mainClass>
-		Test
+		Main
 	      </mainClass>
 	    </manifest>
 	  </archive>

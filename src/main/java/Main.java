@@ -1,6 +1,6 @@
 import java.io.IOException;
 
-public class Test {
+public class Main {
     public static void main(String[] args) throws IOException {
         //Make instance of the converter
         Converter Converter = new Converter();
