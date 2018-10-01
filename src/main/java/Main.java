@@ -7,6 +7,10 @@ import java.io.IOException;
  */
 public class Main {
     public static void main(String[] args) throws IOException {
+	if (args.length < 2) {
+	    System.out.println("Usage: java Main <logfile.edn> <csv_file_directory>");
+	    System.exit(1);
+	}
         //Make instance of the converter
         Converter Converter = new Converter();
         //To convert edn file call the convert method which takes two arguments two arguments: sourceFile and destination for the output files.
